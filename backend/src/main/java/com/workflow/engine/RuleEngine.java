@@ -37,6 +37,7 @@ public class RuleEngine {
             // e.g. amount > 100 && country == 'US' -> #amount > 100 and #country == 'US'
             String spelCondition = condition
                     .replaceAll("(?<![a-zA-Z0-9_#])([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*(==|!=|>|<|>=|<=|&&|\\|\\||\\)))", "#$1")
+                    .replaceAll("(?<![a-zA-Z0-9_#])([a-zA-Z_][a-zA-Z0-9_]*)(?=(==|!=|>|<|>=|<=|&&|\\|\\||\\)))", "#$1")
                     .replaceAll("&&", "and")
                     .replaceAll("\\|\\|", "or");
 

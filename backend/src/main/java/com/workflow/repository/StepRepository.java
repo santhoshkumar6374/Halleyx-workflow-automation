@@ -10,4 +10,6 @@ import java.util.Optional;
 @Repository
 public interface StepRepository extends JpaRepository<Step, Long> {
     List<Step> findByWorkflowIdOrderByStepOrderAsc(Long workflowId);
+    Optional<Step> findByWorkflowIdAndStepOrder(Long workflowId, Integer stepOrder);
+    void deleteByWorkflowId(Long workflowId);
 }

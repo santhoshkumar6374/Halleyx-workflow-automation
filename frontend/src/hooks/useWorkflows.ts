@@ -41,4 +41,20 @@ export const useCreateWorkflow = () => {
   });
 };
 
+export const useDeleteWorkflow = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/workflows/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      toast.success('Workflow deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete workflow');
+    },
+  });
+};
+
 // Add more hooks for Steps, Rules, and Executions here

@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface RuleRepository extends JpaRepository<Rule, Long> {
     List<Rule> findByStepIdOrderByPriorityAsc(Long stepId);
+    void deleteByStepId(Long stepId);
 }

@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface ExecutionRepository extends JpaRepository<Execution, Long> {
     List<Execution> findByWorkflowIdOrderByStartedAtDesc(Long workflowId);
+    void deleteByWorkflowId(Long workflowId);
 }

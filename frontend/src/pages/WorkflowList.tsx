@@ -1,9 +1,20 @@
 import { Link } from 'react-router-dom';
 import { Plus, Play, Edit, Trash2 } from 'lucide-react';
-import { useWorkflows } from '../hooks/useWorkflows';
+import { useWorkflows, useDeleteWorkflow } from '../hooks/useWorkflows';
 
 export function WorkflowList() {
   const { data: workflows, isLoading, error } = useWorkflows();
+  const { mutateAsync: deleteWorkflow } = useDeleteWorkflow();
+
+  const handleDelete = async (id: number) => {
+    if (confirm('Are you sure you want to delete this workflow? All associated executions and steps will be permanently deleted.')) {
+      try {
+        await deleteWorkflow(id);
+      } catch (error) {
+        console.error('Failed to delete workflow', error);
+      }
+    }
+  };
 
   if (isLoading) return <div className="p-8 text-center text-gray-500">Loading workflows...</div>;
   if (error) return <div className="p-8 text-center text-red-500">Failed to load workflows.</div>;
@@ -65,7 +76,11 @@ export function WorkflowList() {
                   >
                     <Edit className="h-5 w-5" />
                   </Link>
-                  <button className="text-gray-400 hover:text-red-600 transition-colors" title="Delete">
+                  <button 
+                    onClick={() => handleDelete(workflow.id!)}
+                    className="text-gray-400 hover:text-red-600 transition-colors" 
+                    title="Delete"
+                  >
                     <Trash2 className="h-5 w-5" />
                   </button>
                 </div>

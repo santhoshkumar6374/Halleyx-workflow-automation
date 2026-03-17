@@ -151,12 +151,21 @@ public class WorkflowEngineService {
                         execution.setStatus(ExecutionStatus.COMPLETED);
                         currentStepId = null;
                     } else {
-                        addLog(execution, "Rule matched: " + matchedRule.get().getCondition() + ". Moving to next step ID: " + nextStepId);
-                        currentStepId = nextStepId;
+                        // The UI sets nextStepId as the step_order (e.g. 1, 2, 3), not the real DB ID
+                        Optional<Step> actualNextStepOpt = stepRepository.findByWorkflowIdAndStepOrder(workflow.getId(), nextStepId.intValue());
+                        if (actualNextStepOpt.isPresent()) {
+                            Long actualNextStepId = actualNextStepOpt.get().getId();
+                            addLog(execution, "Rule matched: " + matchedRule.get().getCondition() + ". Moving to step order " + nextStepId + " (DB ID: " + actualNextStepId + ")");
+                            currentStepId = actualNextStepId;
+                        } else {
+                            addLog(execution, "Step order " + nextStepId + " not found in workflow. Halting.");
+                            execution.setStatus(ExecutionStatus.FAILED);
+                            break;
+                        }
                     }
                 } else {
-                    addLog(execution, "No rule matched and no DEFAULT found. Completing workflow natively.");
-                    execution.setStatus(ExecutionStatus.COMPLETED);
+                    addLog(execution, "No rule matched and no DEFAULT found. Workflow execution failed due to invalid path.");
+                    execution.setStatus(ExecutionStatus.FAILED);
                     currentStepId = null;
                 }
             }

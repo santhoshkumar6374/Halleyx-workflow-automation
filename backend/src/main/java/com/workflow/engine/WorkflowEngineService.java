@@ -93,6 +93,17 @@ public class WorkflowEngineService {
         Long currentStepId = execution.getCurrentStepId() != null ? execution.getCurrentStepId() : workflow.getStartStepId();
 
         if (currentStepId == null) {
+            // Fallback for old workflows before StepService started tracking startStepId
+            List<Step> steps = stepRepository.findByWorkflowIdOrderByStepOrderAsc(workflow.getId());
+            if (!steps.isEmpty()) {
+                currentStepId = steps.get(0).getId();
+                workflow.setStartStepId(currentStepId);
+                workflowRepository.save(workflow);
+                addLog(execution, "Fallback: Found start step dynamically.");
+            }
+        }
+
+        if (currentStepId == null) {
             execution.setStatus(ExecutionStatus.FAILED);
             addLog(execution, "Workflow has no start step configured.");
             execution.setEndedAt(LocalDateTime.now());
@@ -125,22 +136,29 @@ public class WorkflowEngineService {
 
             // Evaluate Rules to find next step
             List<Rule> rules = ruleRepository.findByStepIdOrderByPriorityAsc(step.getId());
-            Optional<Rule> matchedRule = evaluateRules(rules, execution.getData());
+            
+            if (rules.isEmpty()) {
+                addLog(execution, "No rules defined for this step. Workflow completed natively.");
+                execution.setStatus(ExecutionStatus.COMPLETED);
+                currentStepId = null;
+            } else {
+                Optional<Rule> matchedRule = evaluateRules(rules, execution.getData());
 
-            if (matchedRule.isPresent()) {
-                Long nextStepId = matchedRule.get().getNextStepId();
-                if (nextStepId == null) {
-                    addLog(execution, "Reached end of workflow based on rule: " + matchedRule.get().getCondition());
+                if (matchedRule.isPresent()) {
+                    Long nextStepId = matchedRule.get().getNextStepId();
+                    if (nextStepId == null) {
+                        addLog(execution, "Reached end of workflow based on rule: " + matchedRule.get().getCondition());
+                        execution.setStatus(ExecutionStatus.COMPLETED);
+                        currentStepId = null;
+                    } else {
+                        addLog(execution, "Rule matched: " + matchedRule.get().getCondition() + ". Moving to next step ID: " + nextStepId);
+                        currentStepId = nextStepId;
+                    }
+                } else {
+                    addLog(execution, "No rule matched and no DEFAULT found. Completing workflow natively.");
                     execution.setStatus(ExecutionStatus.COMPLETED);
                     currentStepId = null;
-                } else {
-                    addLog(execution, "Rule matched: " + matchedRule.get().getCondition() + ". Moving to next step ID: " + nextStepId);
-                    currentStepId = nextStepId;
                 }
-            } else {
-                addLog(execution, "No rule matched and no DEFAULT found. Halting.");
-                execution.setStatus(ExecutionStatus.FAILED);
-                break;
             }
 
             stepsExecuted++;

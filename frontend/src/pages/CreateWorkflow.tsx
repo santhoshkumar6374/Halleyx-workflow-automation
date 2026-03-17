@@ -1,9 +1,10 @@
 import { useForm } from 'react-hook-form';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useCreateWorkflow } from '../hooks/useWorkflows';
-import { Save, ArrowLeft } from 'lucide-react';
+import { Save, ArrowLeft, Plus, Trash2 } from 'lucide-react';
 
 const workflowSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -30,6 +31,7 @@ export function CreateWorkflow() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(workflowSchema),
@@ -39,6 +41,24 @@ export function CreateWorkflow() {
       inputSchema: '{\n  "amount": "number",\n  "department": "string"\n}',
     },
   });
+
+  const [schemaFields, setSchemaFields] = useState([{ key: 'amount', type: 'number' }, { key: 'department', type: 'string' }]);
+
+  useEffect(() => {
+    const schemaObj = schemaFields.reduce((acc, field) => {
+      if (field.key.trim()) acc[field.key.trim()] = field.type;
+      return acc;
+    }, {} as Record<string, string>);
+    setValue('inputSchema', JSON.stringify(schemaObj, null, 2), { shouldValidate: true });
+  }, [schemaFields, setValue]);
+
+  const addField = () => setSchemaFields([...schemaFields, { key: '', type: 'string' }]);
+  const removeField = (index: number) => setSchemaFields(schemaFields.filter((_, i) => i !== index));
+  const updateField = (index: number, key: string, value: string) => {
+    const newFields = [...schemaFields];
+    newFields[index] = { ...newFields[index], [key]: value };
+    setSchemaFields(newFields);
+  };
 
   const onSubmit = async (data: WorkflowFormValues) => {
     try {
@@ -104,21 +124,49 @@ export function CreateWorkflow() {
             </div>
 
             <div>
-              <label htmlFor="inputSchema" className="block text-sm font-medium text-gray-700">
-                Input Schema (JSON)
+              <label className="block text-sm font-medium text-gray-700 mb-4">
+                Input Schema Configuration
               </label>
-              <div className="mt-1">
-                <textarea
-                  id="inputSchema"
-                  rows={6}
-                  className="shadow-sm font-mono focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border bg-gray-50"
-                  {...register('inputSchema')}
-                />
-                {errors.inputSchema && <p className="mt-2 text-sm text-red-600">{errors.inputSchema.message}</p>}
-                <p className="mt-2 text-sm text-gray-500">
-                  Define the required json structure for inputs triggering this workflow.
-                </p>
+              
+              <div className="space-y-3 bg-gray-50 p-4 border border-gray-200 rounded-md">
+                {schemaFields.map((field, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={field.key}
+                      onChange={(e) => updateField(index, 'key', e.target.value)}
+                      placeholder="Field name (e.g. amount)"
+                      className="flex-1 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
+                    />
+                    <select
+                      value={field.type}
+                      onChange={(e) => updateField(index, 'type', e.target.value)}
+                      className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block sm:text-sm border-gray-300 rounded-md p-2 border bg-white"
+                    >
+                      <option value="string">Text (string)</option>
+                      <option value="number">Number</option>
+                      <option value="boolean">Checkbox (boolean)</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => removeField(index)}
+                      className="p-2 text-gray-400 hover:text-red-500 focus:outline-none"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))}
+                
+                <button
+                  type="button"
+                  onClick={addField}
+                  className="mt-2 inline-flex items-center px-3 py-1.5 border border-indigo-300 shadow-sm text-xs font-medium rounded text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Field
+                </button>
               </div>
+              {errors.inputSchema && <p className="mt-2 text-sm text-red-600">{errors.inputSchema.message}</p>}
             </div>
 
             <div className="pt-5 border-t border-gray-200">

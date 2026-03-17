@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,12 +26,31 @@ export function WorkflowEditor() {
   const {
     register,
     handleSubmit,
+    setValue,
     reset,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(stepSchema),
     defaultValues: { name: '', stepType: 'TASK', metadata: '{}' },
   });
+
+  const [metadataFields, setMetadataFields] = useState<{ key: string; value: string }[]>([]);
+
+  useEffect(() => {
+    const metaObj = metadataFields.reduce((acc, field) => {
+      if (field.key.trim()) acc[field.key.trim()] = field.value;
+      return acc;
+    }, {} as Record<string, string>);
+    setValue('metadata', JSON.stringify(metaObj));
+  }, [metadataFields, setValue]);
+
+  const addMetadataField = () => setMetadataFields([...metadataFields, { key: '', value: '' }]);
+  const removeMetadataField = (index: number) => setMetadataFields(metadataFields.filter((_, i) => i !== index));
+  const updateMetadataField = (index: number, key: keyof typeof metadataFields[0], value: string) => {
+    const newFields = [...metadataFields];
+    newFields[index] = { ...newFields[index], [key]: value };
+    setMetadataFields(newFields);
+  };
 
   const onSubmit = async (data: z.infer<typeof stepSchema>) => {
     try {
@@ -41,6 +60,7 @@ export function WorkflowEditor() {
         workflowId: Number(id),
       });
       setIsAdding(false);
+      setMetadataFields([]);
       reset();
     } catch (error) {
       console.error(error);
@@ -109,13 +129,45 @@ export function WorkflowEditor() {
                     <option value="NOTIFICATION">Notification</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Metadata (JSON)</label>
-                  <input
-                    type="text"
-                    className="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2 border font-mono"
-                    {...register('metadata')}
-                  />
+                <div className="md:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Metadata Configuration (JSON)</label>
+                  <div className="space-y-2 bg-white p-3 border border-gray-200 rounded-md">
+                    {metadataFields.map((field, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={field.key}
+                          onChange={(e) => updateMetadataField(index, 'key', e.target.value)}
+                          placeholder="Key"
+                          className="flex-1 shadow-sm sm:text-sm border-gray-300 rounded-md p-1.5 border"
+                        />
+                        <input
+                          type="text"
+                          value={field.value}
+                          onChange={(e) => updateMetadataField(index, 'value', e.target.value)}
+                          placeholder="Value"
+                          className="flex-1 shadow-sm sm:text-sm border-gray-300 rounded-md p-1.5 border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeMetadataField(index)}
+                          className="text-gray-400 hover:text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addMetadataField}
+                      className="inline-flex items-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-gray-50 hover:bg-gray-100"
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Metadata Field
+                    </button>
+                  </div>
+                  {/* Hidden metadata field tracked by react-hook-form */}
+                  <input type="hidden" {...register('metadata')} />
                 </div>
               </div>
               <div className="flex justify-end space-x-3">

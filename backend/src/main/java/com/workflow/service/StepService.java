@@ -1,8 +1,10 @@
 package com.workflow.service;
 
 import com.workflow.entity.Step;
+import com.workflow.entity.Workflow;
 import com.workflow.exception.ResourceNotFoundException;
 import com.workflow.repository.StepRepository;
+import com.workflow.repository.WorkflowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +15,7 @@ import java.util.List;
 public class StepService {
 
     private final StepRepository stepRepository;
+    private final WorkflowRepository workflowRepository;
 
     public List<Step> getStepsByWorkflowId(Long workflowId) {
         return stepRepository.findByWorkflowIdOrderByStepOrderAsc(workflowId);
@@ -25,7 +28,17 @@ public class StepService {
 
     public Step createStep(Long workflowId, Step step) {
         step.setWorkflowId(workflowId);
-        return stepRepository.save(step);
+        Step savedStep = stepRepository.save(step);
+        
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workflow not found with id: " + workflowId));
+                
+        if (workflow.getStartStepId() == null || (step.getStepOrder() != null && step.getStepOrder() == 1)) {
+            workflow.setStartStepId(savedStep.getId());
+            workflowRepository.save(workflow);
+        }
+        
+        return savedStep;
     }
 
     public Step updateStep(Long id, Step stepDetails) {

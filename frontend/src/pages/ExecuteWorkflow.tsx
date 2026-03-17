@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Play, ArrowLeft, History } from 'lucide-react';
 import { useWorkflow } from '../hooks/useWorkflows';
@@ -12,23 +12,28 @@ export function ExecuteWorkflow() {
   const { data: executions, isLoading: isLoadingExecs } = useExecutions(id!);
   const { mutateAsync: startExecution, isPending } = useStartExecution(id!);
 
-  const [inputData, setInputData] = useState('{\n  \n}');
+  const schema = useMemo(() => {
+    if (!workflow?.inputSchema) return {};
+    try {
+      return JSON.parse(workflow.inputSchema);
+    } catch {
+      return {};
+    }
+  }, [workflow?.inputSchema]);
+
+  const [formData, setFormData] = useState<Record<string, any>>({});
   const [triggeredBy, setTriggeredBy] = useState('user@example.com');
 
   const handleExecute = async () => {
     try {
-      // Validate JSON
-      JSON.parse(inputData);
-      
       const execution = await startExecution({
-        data: inputData,
+        data: JSON.stringify(formData, null, 2),
         triggeredBy,
       });
       navigate(`/executions/${execution.id}`);
     } catch (error) {
-      if (error instanceof SyntaxError) {
-        alert('Invalid JSON input formatted data.');
-      }
+      console.error(error);
+      alert('Failed to start execution.');
     }
   };
 
@@ -66,18 +71,31 @@ export function ExecuteWorkflow() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Input Data (JSON) based on schema
+              <label className="block text-sm font-medium text-gray-700 mb-4">
+                Input Data Configuration
               </label>
-              <div className="bg-gray-50 p-2 text-xs text-gray-500 border border-gray-200 rounded-t-md font-mono whitespace-pre-wrap">
-                Schema: <br/>{workflow.inputSchema}
+              <div className="space-y-4 bg-gray-50 p-4 border border-gray-200 rounded-md">
+                {Object.keys(schema).length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">No input schema defined for this workflow.</p>
+                ) : (
+                  Object.entries(schema).map(([key, type]) => (
+                    <div key={key}>
+                      <label className="block text-xs font-medium text-gray-700 capitalize mb-1">
+                        {key.replace(/([A-Z])/g, ' $1').trim()} ({String(type)})
+                      </label>
+                      <input
+                        type={type === 'number' ? 'number' : type === 'boolean' ? 'checkbox' : 'text'}
+                        className={`shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border ${type === 'boolean' ? 'h-4 w-4 text-indigo-600' : ''}`}
+                        onChange={(e) => {
+                          const val = type === 'boolean' ? e.target.checked : type === 'number' ? Number(e.target.value) : e.target.value;
+                          setFormData(prev => ({ ...prev, [key]: val }));
+                        }}
+                        placeholder={`Enter ${key}...`}
+                      />
+                    </div>
+                  ))
+                )}
               </div>
-              <textarea
-                rows={10}
-                value={inputData}
-                onChange={(e) => setInputData(e.target.value)}
-                className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-b-md p-2 border font-mono"
-              />
             </div>
 
             <button
